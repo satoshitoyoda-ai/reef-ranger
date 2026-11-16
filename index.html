@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Reef Ranger">
+<meta name="theme-color" content="#0a5a86">
+<title>Reef Ranger: Pip's Ocean Patrol</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<script type="importmap">
+{ "imports": {
+  "three": "./lib/three.module.js",
+  "three/addons/": "./lib/addons/"
+} }
+</script>
+<style>
+  :root { --font: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", "Segoe UI", system-ui, sans-serif; --ink: #0b2f4a; --sea: #0a5a86; --sun: #ffd23f; --coral: #ff6f61; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #06324a; font-family: var(--font); color: #fff; touch-action: none; overscroll-behavior: none; }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; }
+  button { font-family: inherit; cursor: pointer; border: 0; }
+  .screen { position: fixed; inset: 0; display: none; }
+  body[data-screen="title"] #title, body[data-screen="map"] #map, body[data-screen="guide"] #guide, body[data-screen="play"] #hud { display: block; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; background: #0a5a86; font-size: 28px; font-weight: 900; z-index: 50; }
+
+  /* ---------- title ---------- */
+  #title { pointer-events: none; background: radial-gradient(ellipse at 22% 45%, rgba(4,40,70,.55), rgba(4,40,70,0) 55%); }
+  #title .logo { position: absolute; left: 6vw; top: 12vh; }
+  #title h1 { margin: 0; font-size: clamp(54px, 9.5vw, 120px); line-height: .9; letter-spacing: 1px; font-weight: 900;
+    background: linear-gradient(#fff6b0, #ffd23f 45%, #ff9f1c); -webkit-background-clip: text; background-clip: text; color: transparent;
+    -webkit-text-stroke: 3px #0b3d63; filter: drop-shadow(0 6px 0 #0b3d63) drop-shadow(0 12px 18px rgba(0,0,0,.35)); }
+  #title h2 { margin: 14px 0 0 6px; font-size: clamp(20px, 2.6vw, 32px); font-weight: 800; color: #e9fbff; text-shadow: 0 3px 0 #0b3d63; }
+  #title .tag { display: inline-block; margin: 14px 0 0 6px; padding: 6px 14px; border-radius: 99px; background: rgba(255,255,255,.18); font-size: 15px; font-weight: 700; }
+  #whos { pointer-events: auto; position: absolute; left: 6vw; bottom: max(9vh, env(safe-area-inset-bottom)); display: flex; gap: 22px; }
+  .who { width: 268px; padding: 14px 18px 14px 14px; border-radius: 32px; background: rgba(255,255,255,.96); color: var(--ink); text-align: left; display: flex; gap: 14px; align-items: center;
+    box-shadow: 0 8px 0 #9ccbe0, 0 16px 26px rgba(0,0,0,.3); }
+  .who:active { transform: translateY(5px); box-shadow: 0 3px 0 #9ccbe0, 0 8px 16px rgba(0,0,0,.3); }
+  .who .ic { flex: none; width: 88px; height: 88px; border-radius: 50%; display: grid; place-items: center; font-size: 46px; box-shadow: inset 0 -6px 0 rgba(0,0,0,.12); }
+  #who-easy .ic { background: radial-gradient(circle at 35% 30%, #fff7b8, #ffd23f 45%, #ff9f1c); animation: bob 2.2s ease-in-out infinite; }
+  #who-free .ic { background: radial-gradient(circle at 35% 30%, #ffffff, #9fe9ff 40%, #2fb3e6); }
+  .who b { display: block; font-size: 27px; font-weight: 900; line-height: 1.05; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+  .who small { display: block; margin-top: 3px; font-size: 14px; font-weight: 800; color: #3d6b86; line-height: 1.2; }
+  .who em { display: block; margin-top: 6px; font-style: normal; font-size: 15px; font-weight: 900; color: #c27c00; }
+  #title .hint { position: absolute; right: 4vw; bottom: 9vh; font-size: 18px; font-weight: 800; opacity: .9; text-shadow: 0 2px 0 #0b3d63; }
+  #gear { pointer-events: auto; position: absolute; right: max(16px, env(safe-area-inset-right)); top: max(14px, env(safe-area-inset-top)); width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(255,255,255,.2); color: #fff; font-size: 26px; display: grid; place-items: center; }
+  #gear i { position: absolute; inset: -4px; border-radius: 50%; border: 4px solid var(--sun); clip-path: inset(0 0 100% 0); }
+  #gear.hold i { animation: fill 2s linear forwards; }
+  @keyframes fill { to { clip-path: inset(0 0 0 0); } }
+  @keyframes bob { 50% { transform: translateY(-8px) scale(1.03); } }
+
+  /* ---------- HUD ---------- */
+  #hud { pointer-events: none; }
+  #hud .top { position: absolute; left: max(14px, env(safe-area-inset-left)); right: max(14px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); display: flex; align-items: flex-start; gap: 14px; }
+  .pill { background: rgba(6,45,75,.62); border: 3px solid rgba(255,255,255,.75); border-radius: 99px; padding: 8px 16px; font-weight: 900; font-size: 22px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #pausebtn { pointer-events: auto; width: 50px; height: 50px; padding: 0; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  #pausebtn i { width: 6px; height: 18px; border-radius: 2px; background: #fff; }
+  #stars { color: var(--sun); min-width: 110px; }
+  #stars b { color: #fff; margin-left: 6px; }
+  .mid { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  #lvl { font-size: 18px; padding: 5px 16px; }
+  #prog { position: relative; width: min(44vw, 460px); height: 14px; border-radius: 99px; background: rgba(255,255,255,.28); border: 2px solid rgba(255,255,255,.8); }
+  #prog i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: linear-gradient(90deg, #7ff0ff, #ffd23f); }
+  #prog em { position: absolute; top: 50%; width: 30px; height: 20px; margin: -10px 0 0 -15px; border-radius: 50% 60% 60% 50%; background: #7d9db6; border: 2px solid #fff; }
+  #prog em::after { content: ''; position: absolute; right: -9px; top: 3px; border: 6px solid transparent; border-left: 9px solid #7d9db6; }
+  #guidebtn { pointer-events: auto; color: #fff; display: flex; align-items: center; gap: 8px; }
+  #guidebtn.bump { animation: bump .5s; }
+  @keyframes bump { 40% { transform: scale(1.25); } }
+  #request { position: absolute; left: max(14px, env(safe-area-inset-left)); top: 78px; display: none; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; font-size: 17px; }
+  #request.on { display: flex; animation: bump .5s; }
+  #request img { width: 64px; height: 46px; object-fit: cover; border-radius: 12px; border: 2px solid #fff; background: #cfeefc; }
+  #request small { display: block; font-size: 12px; color: #bfefff; }
+  #bossbar { position: absolute; left: 50%; top: 118px; transform: translateX(-50%); width: min(50vw, 420px); display: none; text-align: center; font-weight: 900; text-shadow: 0 2px 0 #0b3d63; }
+  #bossbar.on { display: block; }
+  #bossbar div { height: 16px; margin-top: 4px; border-radius: 99px; background: rgba(255,255,255,.3); border: 2px solid #fff; overflow: hidden; }
+  #bossbar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #b28dff, #7fd1ff); transition: width .2s; }
+  #radio { position: absolute; left: max(14px, env(safe-area-inset-left)); bottom: max(18px, env(safe-area-inset-bottom)); max-width: min(46vw, 520px); display: flex; gap: 12px; align-items: center; padding: 10px 18px 10px 10px;
+    background: rgba(255,255,255,.94); color: var(--ink); border-radius: 26px; font-size: 19px; font-weight: 800; box-shadow: 0 6px 0 rgba(6,45,75,.35); transform: translateY(160%); transition: transform .35s cubic-bezier(.3,1.4,.6,1); }
+  body[data-player="free"] #radio { left: 210px; max-width: calc(100vw - 480px); }
+  #radio.on { transform: none; }
+  #radio .ray { flex: none; width: 58px; height: 58px; border-radius: 50%; background: #1f3b57; display: grid; place-items: center; }
+  #firebtn { pointer-events: auto; position: absolute; right: max(26px, env(safe-area-inset-right)); bottom: max(26px, env(safe-area-inset-bottom)); width: 136px; height: 136px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffffff, #9fe9ff 40%, #2fb3e6);
+    border: 5px solid #fff; box-shadow: 0 8px 0 #1679a6, 0 14px 24px rgba(0,0,0,.3); color: #06446b; font-weight: 900; font-size: 20px; display: grid; place-items: center; }
+  #firebtn .ico { font-size: 44px; line-height: 1; }
+  #firebtn:active, #snapbtn:active, #boostbtn:active { transform: translateY(5px); }
+  body[data-player="easy"] #firebtn { width: 120px; height: 120px; }
+  #boostbtn { pointer-events: auto; position: absolute; right: 178px; bottom: 30px; width: 88px; height: 88px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #ffd23f 50%, #ff9f1c); border: 4px solid #fff; box-shadow: 0 6px 0 #b8650c; font-size: 17px; font-weight: 900; color: #7a3d00; }
+  #snapbtn { pointer-events: auto; position: absolute; right: 44px; bottom: 184px; width: 96px; height: 96px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #ffe08a 40%, #ffb020); border: 4px solid #fff;
+    box-shadow: 0 6px 0 #b86f00, 0 12px 20px rgba(0,0,0,.25); color: #6a3b00; font-weight: 900; font-size: 15px; display: grid; place-items: center; line-height: 1; }
+  #snapbtn .ico { font-size: 38px; display: block; margin-bottom: 2px; }
+  #snapbtn.ask { animation: wiggle 1.4s ease-in-out infinite; }
+  @keyframes wiggle { 0%, 60%, 100% { transform: none; } 70% { transform: rotate(-12deg) scale(1.08); } 80% { transform: rotate(10deg) scale(1.08); } 90% { transform: rotate(-6deg); } }
+  #stickhint { position: absolute; left: 40px; bottom: 40px; width: 150px; height: 150px; border-radius: 50%; border: 4px dashed rgba(255,255,255,.55); display: none; place-items: center; text-align: center; font-size: 15px; font-weight: 800; color: rgba(255,255,255,.9); text-shadow: 0 2px 0 #0b3d63; }
+  body[data-player="free"] #stickhint { display: grid; }
+  #stick { position: fixed; width: 140px; height: 140px; border-radius: 50%; border: 4px solid rgba(255,255,255,.8); background: rgba(255,255,255,.12); display: none; pointer-events: none; z-index: 5; }
+  #stick.on { display: block; }
+  #stick i { position: absolute; left: 42px; top: 42px; width: 56px; height: 56px; border-radius: 50%; background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,.3); }
+  #reticle { position: absolute; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; border: 3px solid rgba(255,255,255,.85); box-shadow: 0 0 0 2px rgba(6,45,75,.3); }
+  #reticle::after { content: ''; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px; border-radius: 50%; background: #fff; }
+  #ping { position: fixed; width: 20px; height: 20px; margin: -10px; border-radius: 50%; border: 4px solid #7ff0ff; opacity: 0; pointer-events: none; z-index: 4; }
+  #ping.go { animation: ping .9s ease-out; }
+  @keyframes ping { 0% { opacity: 1; transform: scale(.5); } 100% { opacity: 0; transform: scale(9); } }
+  #flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 6; }
+  #flash.go { animation: flash .35s ease-out; }
+  @keyframes flash { 0% { opacity: .85; } 100% { opacity: 0; } }
+  #toast { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; padding: 10px 22px; border-radius: 99px; background: rgba(6,45,75,.85); font-weight: 900; font-size: 22px; transition: .25s; pointer-events: none; z-index: 7; }
+  #toast.on { opacity: 1; transform: translate(-50%, -50%); }
+  .plus { position: fixed; z-index: 6; pointer-events: none; color: var(--sun); font-weight: 900; font-size: 26px; text-shadow: 0 3px 0 #0b3d63; transform: translate(-50%, -50%); animation: plus 1.2s ease-out forwards; }
+  @keyframes plus { 100% { transform: translate(-50%, -160%) scale(1.2); opacity: 0; } }
+  .polaroid { position: fixed; z-index: 8; width: 220px; padding: 10px 10px 8px; background: #fff; border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.4); transform: rotate(-4deg) scale(.4); animation: pop .35s forwards; transition: all .9s cubic-bezier(.5,-.3,.6,1); pointer-events: none; }
+  .polaroid img { width: 200px; height: 150px; display: block; border-radius: 3px; }
+  .polaroid span { display: block; text-align: center; color: #ffb000; font-size: 26px; font-weight: 900; }
+  .polaroid span i { color: #ddd; font-style: normal; }
+  .polaroid.fly { left: calc(100vw - 120px) !important; top: 10px !important; transform: rotate(10deg) scale(.15); opacity: .4; }
+  @keyframes pop { to { transform: rotate(-4deg) scale(1); } }
+
+  /* ---------- fish card (the window shows the live 3D model underneath) ---------- */
+  #card { position: fixed; right: max(18px, env(safe-area-inset-right)); top: 86px; width: 330px; z-index: 5; transform: translateX(130%); transition: transform .45s cubic-bezier(.3,1.3,.6,1); display: flex; flex-direction: column; filter: drop-shadow(0 10px 18px rgba(0,0,0,.35)); }
+  #card.on { transform: none; }
+  #card .new { align-self: center; margin-bottom: -14px; z-index: 2; padding: 5px 16px; border-radius: 99px; background: var(--coral); border: 3px solid #fff; font-size: 15px; font-weight: 900; letter-spacing: .5px; }
+  #card .win { height: 190px; border: 6px solid #fff; border-bottom: 0; border-radius: 26px 26px 0 0; }
+  #card .body { background: #fff; color: var(--ink); border-radius: 0 0 26px 26px; padding: 4px 18px 16px; }
+  #card h3 { margin: 6px 0 6px; font-size: 27px; font-weight: 900; }
+  .kind { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 13px; font-weight: 900; letter-spacing: .4px; background: #dfe9ef; color: #345; }
+  .kind.fish { background: #d6f5e3; color: #11734a; }
+  .kind.not { background: #ffe4d6; color: #b2451b; }
+  #card p { margin: 10px 0 0; font-size: 18px; line-height: 1.32; font-weight: 700; }
+
+  /* ---------- pop-up panels: end card, pause, grown-ups ---------- */
+  .panel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.7); opacity: 0; pointer-events: none; transition: .4s cubic-bezier(.3,1.4,.6,1); background: #fff; color: var(--ink); border-radius: 34px; padding: 26px 36px; text-align: center; box-shadow: 0 12px 0 rgba(6,45,75,.4); z-index: 9; min-width: 420px; }
+  .panel.on { opacity: 1; transform: translate(-50%, -50%); pointer-events: auto; }
+  .panel h2 { margin: 0; font-size: 38px; font-weight: 900; color: var(--sea); }
+  .panel .line { margin: 10px 0 14px; font-size: 19px; font-weight: 800; }
+  .panel .row { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .panel .row span { padding: 8px 16px; border-radius: 99px; background: #eef7fb; font-weight: 900; font-size: 20px; }
+  .panel .st { color: #e69500; }
+  .panel button { margin: 4px 6px; padding: 14px 22px; border-radius: 99px; font-size: 19px; font-weight: 900; background: #e8f6fc; color: var(--sea); }
+  .panel button.go { background: var(--sun); color: #7a3d00; box-shadow: 0 5px 0 #c98a00; }
+  #endcard .best { display: inline-block; margin-left: 6px; padding: 2px 10px; border-radius: 99px; background: var(--coral); color: #fff; font-size: 14px; vertical-align: middle; }
+  #pausecard button.go { font-size: 24px; padding: 18px 30px; }
+  #grown { width: min(560px, calc(100vw - 30px)); max-height: calc(100vh - 30px); overflow: auto; text-align: left; padding: 22px 26px; touch-action: pan-y; z-index: 12; }
+  #grown h2 { font-size: 28px; margin-bottom: 4px; }
+  #grown .gr { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 2px solid #eef3f6; font-size: 18px; font-weight: 800; }
+  #grown .gr small { display: block; font-size: 13px; color: #557; font-weight: 700; }
+  #grown input[type=text] { width: 190px; padding: 9px 12px; border-radius: 12px; border: 2px solid #cfe1ea; font: 800 18px var(--font); color: var(--ink); user-select: text; -webkit-user-select: text; touch-action: auto; }
+  #grown .tog { min-width: 86px; margin: 0; padding: 10px 14px; font-size: 16px; }
+  #grown .tog.on { background: #20a36b; color: #fff; }
+  #grown .warn { background: #ffe4d6; color: #b2451b; font-size: 15px; padding: 10px 14px; margin: 0 0 0 6px; }
+  #grown .ver { margin-top: 12px; font-size: 13px; color: #6a7d8a; font-weight: 700; }
+  #grown .close { position: sticky; bottom: 0; display: block; margin: 14px auto 0; }
+
+  /* ---------- map ---------- */
+  #map { background: linear-gradient(#5fd3ee 0%, #1d8fbf 26%, #0d5a8a 48%, #0a3560 70%, #040f24 100%); z-index: 3; }
+  #map .surface { position: absolute; left: 0; right: 0; top: 0; height: 16px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.6) 0 40px, rgba(255,255,255,.2) 40px 80px); }
+  #map h1 { position: absolute; left: 0; right: 0; top: 30px; margin: 0; text-align: center; font-size: 40px; font-weight: 900; text-shadow: 0 4px 0 #0b3d63; }
+  #map .zones { position: absolute; left: max(18px, env(safe-area-inset-left)); top: 0; bottom: 0; width: 170px; }
+  #map .zone { position: absolute; left: 0; font-size: 14px; font-weight: 900; line-height: 1.25; opacity: .92; padding-left: 12px; border-left: 4px solid rgba(255,255,255,.6); }
+  #map .zone small { display: block; font-weight: 700; opacity: .85; }
+  #stops { position: absolute; inset: 0; }
+  .stop { position: absolute; width: 230px; padding: 10px 10px 12px; border-radius: 28px; background: rgba(255,255,255,.95); color: var(--ink); text-align: center; box-shadow: 0 8px 0 rgba(0,0,0,.25); transform: translate(-50%, -50%); }
+  .stop:active { transform: translate(-50%, calc(-50% + 4px)); }
+  .stop .ph { display: block; height: 116px; border-radius: 20px; overflow: hidden; background: #cfeefc; }
+  .stop .ph img { width: 100%; height: 100%; object-fit: cover; }
+  .stop b { display: block; margin-top: 8px; font-size: 23px; font-weight: 900; }
+  .stop small { display: block; font-size: 13px; font-weight: 800; color: #3d6b86; }
+  .stop em { display: inline-block; margin-top: 6px; padding: 3px 10px; border-radius: 99px; background: #fff2c2; color: #8a5a00; font-style: normal; font-weight: 900; font-size: 14px; }
+  .stop.here { outline: 6px solid var(--sun); }
+  .stop.locked { opacity: .62; }
+  .stop.locked .ph { filter: grayscale(1) brightness(.7); }
+  .stop.s0 { left: 27%; top: 32%; } .stop.s1 { left: 56%; top: 35%; } .stop.s2 { left: 82%; top: 52%; } .stop.s3 { left: 52%; top: 77%; }
+  .pinpip { position: absolute; left: 50%; top: -34px; transform: translateX(-50%); width: 64px; height: 40px; border-radius: 50% 60% 55% 50%; background: #7d9db6; border: 3px solid #fff; animation: bob 1.6s infinite; }
+  .pinpip::after { content: 'Pip'; position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-style: normal; font-weight: 900; font-size: 15px; }
+  #mapback, #mapguide { position: absolute; top: 24px; padding: 12px 20px; border-radius: 99px; background: #fff; color: var(--sea); font-size: 18px; font-weight: 900; box-shadow: 0 4px 0 rgba(0,0,0,.2); }
+  #mapback { left: max(20px, env(safe-area-inset-left)); }
+  #mapguide { right: max(20px, env(safe-area-inset-right)); }
+  #mapwho { position: absolute; left: 50%; top: 82px; transform: translateX(-50%); padding: 4px 14px; border-radius: 99px; background: rgba(255,255,255,.2); font-size: 16px; font-weight: 900; white-space: nowrap; }
+
+  /* ---------- Fish Guide (panels float over the 3D sea; the big window shows the live model) ---------- */
+  #guide { z-index: 3; }
+  #guide .gl { position: absolute; left: max(16px, env(safe-area-inset-left)); top: 16px; bottom: 16px; width: calc(100% - 470px); border-radius: 30px; background: rgba(6,45,75,.78); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 18px; display: flex; flex-direction: column; }
+  #guide h1 { margin: 0 0 4px 6px; font-size: 34px; font-weight: 900; }
+  #guide h1 small { font-size: 17px; font-weight: 800; color: #bfefff; margin-left: 10px; }
+  #ggrid { flex: 1; overflow: auto; touch-action: pan-y; display: grid; grid-auto-rows: max-content; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 12px; padding: 8px 4px; align-content: start; }
+  .gc { position: relative; padding: 0 0 8px; border-radius: 18px; background: #fff; color: var(--ink); overflow: hidden; font-weight: 900; font-size: 14px; box-shadow: 0 5px 0 rgba(0,0,0,.25); }
+  .gc img { display: block; width: 100%; height: 92px; object-fit: cover; background: #cfeefc; }
+  .gc b { display: block; padding: 6px 4px 0; }
+  .gc.not { background: #a7c3d3; color: #4d6d80; }
+  .gc.not img { background: #a7c3d3; }
+  .gc .q { display: grid; place-items: center; height: 92px; font-size: 44px; color: #6f90a3; background: #b9d2df; }
+  .gc .cam { position: absolute; right: 6px; top: 6px; padding: 2px 6px; border-radius: 99px; background: rgba(255,255,255,.92); font-size: 13px; color: #c27c00; }
+  .gc.sel { outline: 5px solid var(--sun); }
+  #guide .gr { position: absolute; right: max(16px, env(safe-area-inset-right)); top: 16px; bottom: 16px; width: 430px; display: flex; flex-direction: column; }
+  #gwin { flex: 1; min-height: 160px; border: 8px solid #fff; border-bottom: 0; border-radius: 30px 30px 0 0; }
+  #guide .gtext { background: #fff; color: var(--ink); border-radius: 0 0 30px 30px; padding: 12px 22px 18px; }
+  #gname { margin: 4px 0 8px; font-size: 32px; font-weight: 900; }
+  #gfact { margin: 12px 0 10px; font-size: 20px; font-weight: 700; line-height: 1.35; }
+  #gplace { font-size: 14px; font-weight: 900; color: #3d6b86; }
+  #gphoto { display: none; align-items: center; gap: 12px; margin-top: 10px; padding: 6px; border-radius: 14px; background: #fff7dc; }
+  #gphoto.on { display: flex; }
+  #gphoto img { width: 96px; height: 72px; border-radius: 8px; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.2); transform: rotate(-3deg); }
+  #gphoto b { display: block; font-size: 15px; } #gphoto span { color: #ffb000; font-size: 20px; font-weight: 900; } #gphoto span i { color: #ddd; font-style: normal; }
+  #gclose { position: absolute; right: max(26px, env(safe-area-inset-right)); top: 26px; z-index: 2; width: 54px; height: 54px; border-radius: 50%; background: #fff; color: var(--sea); font-size: 26px; font-weight: 900; box-shadow: 0 4px 0 rgba(0,0,0,.25); }
+  body[data-screen="guide"] #card { display: none; }
+
+  /* ---------- turn the iPad sideways ---------- */
+  #rotate { position: fixed; inset: 0; z-index: 70; display: none; place-items: center; text-align: center; background: linear-gradient(#1d8fbf, #0a3560); padding: 30px; }
+  #rotate.on { display: grid; }
+  #rotate .dev { width: 120px; height: 170px; margin: 0 auto 30px; border: 8px solid #fff; border-radius: 22px; position: relative; animation: turn 2.4s ease-in-out infinite; }
+  #rotate .dev::after { content: '🦈'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 52px; }
+  @keyframes turn { 0%, 25% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
+  #rotate b { display: block; font-size: 30px; font-weight: 900; text-shadow: 0 3px 0 #0b3d63; }
+  #rotate small { display: block; margin-top: 8px; font-size: 18px; font-weight: 800; opacity: .9; }
+
+  @media (max-height: 560px) {
+    #title h1 { font-size: 60px; } #title .logo { top: 7vh; } #title h2 { font-size: 20px; } #title .tag { display: none; }
+    .who { width: 232px; padding: 10px 14px 10px 10px; } .who .ic { width: 66px; height: 66px; font-size: 34px; } .who b { font-size: 22px; max-width: 120px; } .who small { font-size: 12px; } #title .hint { display: none; }
+    .pill { font-size: 17px; padding: 5px 12px; } #pausebtn { width: 40px; height: 40px; } #request { top: 60px; } #bossbar { top: 92px; }
+    #card { width: 240px; top: 56px; right: 140px; } #card .win { height: 96px; } #card p { font-size: 14px; } #card h3 { font-size: 20px; margin: 4px 0; }
+    #firebtn, body[data-player="easy"] #firebtn { width: 100px; height: 100px; } #firebtn .ico { font-size: 34px; } #boostbtn { width: 70px; height: 70px; right: 140px; }
+    #snapbtn { width: 76px; height: 76px; right: 38px; bottom: 140px; } #snapbtn .ico { font-size: 30px; }
+    .stop { width: 170px; } .stop .ph { height: 70px; } .stop b { font-size: 18px; } #map h1 { font-size: 30px; top: 22px; } #mapwho { top: 64px; }
+    #guide .gl { width: calc(100% - 340px); } #guide .gr { width: 310px; } #gfact { font-size: 16px; } #gname { font-size: 24px; }
+    .panel { padding: 18px 26px; min-width: 360px; } .panel h2 { font-size: 30px; }
+  }
+</style>
+</head>
+<body data-screen="title" data-player="easy">
+<div id="stage"></div>
+<div id="loading">Filling the ocean…</div>
+
+<!-- title: pick a swimmer -->
+<div id="title" class="screen">
+  <div class="logo"><h1>REEF<br>RANGER</h1><h2>Pip's Ocean Patrol</h2><span class="tag">Swim · Bubble · Learn the fish</span></div>
+  <div id="whos">
+    <button class="who" id="who-easy" data-p="easy"><span class="ic">👆</span><span><b>Easy swim</b><small>Pip swims for you.<br>Tap to blow bubbles.</small><em></em></span></button>
+    <button class="who" id="who-free" data-p="free"><span class="ic">🕹️</span><span><b>Free swim</b><small>Steer Pip with<br>the stick.</small><em></em></span></button>
+  </div>
+  <div class="hint">Hi, I'm Pip! Who is swimming with me?</div>
+  <button id="gear" aria-label="Grown-ups: hold for 2 seconds">⚙︎<i></i></button>
+</div>
+
+<!-- course map -->
+<div id="map" class="screen">
+  <div class="surface"></div>
+  <h1>Where should Pip swim?</h1>
+  <div id="mapwho"></div>
+  <button id="mapback">‹ Back</button>
+  <button id="mapguide">🐠 Fish Guide</button>
+  <div class="zones">
+    <div class="zone" style="top:20%">SUNLIGHT ZONE<small>0–200 m · bright and warm</small></div>
+    <div class="zone" style="top:56%">TWILIGHT ZONE<small>200–1,000 m · dim blue</small></div>
+    <div class="zone" style="top:80%">MIDNIGHT ZONE<small>1,000 m+ · totally dark</small></div>
+  </div>
+  <div id="stops"></div>
+</div>
+
+<!-- Fish Guide -->
+<div id="guide" class="screen">
+  <div class="gl"><h1>Fish Guide <small id="gcount"></small></h1><div id="ggrid"></div></div>
+  <div class="gr"><div id="gwin"></div><div class="gtext"><div id="gname"></div><span id="gkind" class="kind"></span><div id="gfact"></div><div id="gplace"></div>
+    <div id="gphoto"><img alt=""><div><b>Your photo</b><span></span></div></div></div></div>
+  <button id="gclose" aria-label="Close">✕</button>
+</div>
+
+<!-- in-game HUD -->
+<div id="hud" class="screen">
+  <div class="top">
+    <button id="pausebtn" class="pill" aria-label="Pause"><i></i><i></i></button>
+    <div id="stars" class="pill">★<b>0</b></div>
+    <div class="mid"><div id="lvl" class="pill">Coral Reef</div><div id="prog"><i></i><em></em></div></div>
+    <button id="guidebtn" class="pill">🐠 <b>1/22</b></button>
+  </div>
+  <div id="request" class="pill"><img alt=""><div><small>Ray asks: snap a photo of</small><b></b></div></div>
+  <div id="bossbar"><b></b><div><i></i></div></div>
+  <div id="reticle"></div>
+  <div id="stickhint">drag here<br>to swim</div>
+  <div id="radio"><div class="ray"><svg width="46" height="30" viewBox="0 0 46 30"><path d="M23 2 C27 2 30 6 33 9 C38 11 43 13 45 17 C40 19 35 18 31 20 C28 23 26 26 23 28 C20 26 18 23 15 20 C11 18 6 19 1 17 C3 13 8 11 13 9 C16 6 19 2 23 2Z" fill="#cfe4f2"/><circle cx="19" cy="9" r="2" fill="#13263a"/><circle cx="27" cy="9" r="2" fill="#13263a"/><path d="M20 13 Q23 15 26 13" stroke="#13263a" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></div><div><small style="display:block;font-size:12px;color:#3d6b86">RANGER RAY</small><span class="txt"></span></div></div>
+  <button id="boostbtn">Zoom!</button>
+  <button id="snapbtn" aria-label="Take a photo"><div><span class="ico">📷</span>Snap</div></button>
+  <button id="firebtn"><div><div class="ico">◎</div><span>Bubble!</span></div></button>
+</div>
+<div id="stick"><i></i></div>
+<div id="ping"></div><div id="flash"></div><div id="toast"></div>
+
+<div id="card"><div class="new">NEW FRIEND!</div><div class="win"></div><div class="body"><h3></h3><span class="kind"></span><p></p></div></div>
+
+<div id="endcard" class="panel"><h2></h2><div class="line"></div><div class="row"><span class="st"></span><span class="fg"></span></div>
+  <button id="endagain">Again</button><button id="endguide">Fish Guide</button><button id="endmap">Map</button><button id="endnext" class="go">Next place ▶</button></div>
+
+<div id="pausecard" class="panel"><h2>Pip is resting</h2><div class="line">Take a break. Pip will wait for you!</div>
+  <button id="pmap">🗺 Map</button><button id="presume" class="go">▶ Keep swimming</button></div>
+
+<div id="grown" class="panel">
+  <h2>Grown-ups</h2>
+  <div class="gr"><span>Sound effects<small>Bubbles, chimes, ocean hum</small></span><button class="tog" data-set="sound"></button></div>
+  <div class="gr"><span>Ranger Ray's voice<small>Reads the fish facts aloud (the device voice)</small></span><button class="tog" data-set="voice"></button></div>
+  <div class="gr"><span>Name on "Easy swim"<small>Stays on this device only</small></span><input type="text" id="name-easy" maxlength="12" placeholder="Easy swim" autocomplete="off"></div>
+  <div class="gr"><span>Name on "Free swim"<small>Stays on this device only</small></span><input type="text" id="name-free" maxlength="12" placeholder="Free swim" autocomplete="off"></div>
+  <div class="gr"><span>Start over<small>Clears that swimmer's fish, stars and photos</small></span><span><button class="warn" data-reset="easy">Easy swim</button><button class="warn" data-reset="free">Free swim</button></span></div>
+  <div class="ver" id="ver"></div>
+  <button class="close go" id="grownclose">Done</button>
+</div>
+
+<div id="rotate"><div><div class="dev"></div><b>Turn the iPad sideways</b><small>Pip needs a wide ocean to swim in!</small></div></div>
+
+<script type="module" src="js/game.js"></script>
+</body>
+</html>
