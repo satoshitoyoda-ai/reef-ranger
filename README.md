@@ -1,4 +1,4 @@
-# Reef Ranger: Pip's Ocean Patrol — v1.0
+# Reef Ranger: Pip's Ocean Patrol — v1.0.1
 
 An original underwater "flight" game for young children. **Pip**, a baby blacktip reef shark (an original character), swims through the ocean like a little plane. Pip blows bubbles to clean up the sea, puts grumpy fish to sleep, and takes photos for Ranger Ray, a friendly manta ray. Every animal Pip meets goes into the **Fish Guide**, with a real fact read aloud.
 
@@ -15,6 +15,7 @@ All art and sound are made in code. There are no downloaded models, images or so
   - **Sleepy bubbles:** grumpy barracudas (anglerfish in the deep) cross ahead and moray eels peek out of rocks. A few bubbles and they yawn and nap on the sand. A boss waits at the end: the Big Barracuda, or a giant squid in the deep. If the boss isn't asleep after 45 seconds it gets tired and naps anyway.
   - **Photo requests (optional):** Ray asks for a photo of a fish ("snap a parrotfish"). Tap **📷 Snap**; photos earn 1–3 stars by size. The best photo of each animal is kept in the Fish Guide.
 - **No fail state.** Bumps only wobble Pip.
+- **Easy to see (v1.0.1, after the first iPad test):** bubble shots are big and glowing with a trail, a ring flashes where the finger taps and a yellow ring where a bubble pops. Trash is solid and brightly coloured, with a pulsing yellow ring when it is within about 38 m.
 - **Learning:** friendly fish near Pip are scanned automatically and a card pops up (name, a "FISH" or "NOT A FISH · mammal/reptile/mollusk/jelly" badge, a one-line fact read aloud).
 - **Pause** (top-left), **Zoom!** (speed burst).
 

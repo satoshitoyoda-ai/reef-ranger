@@ -106,6 +106,12 @@
   #ping { position: fixed; width: 20px; height: 20px; margin: -10px; border-radius: 50%; border: 4px solid #7ff0ff; opacity: 0; pointer-events: none; z-index: 4; }
   #ping.go { animation: ping .9s ease-out; }
   @keyframes ping { 0% { opacity: 1; transform: scale(.5); } 100% { opacity: 0; transform: scale(9); } }
+  .tapring { position: fixed; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; border: 5px solid #fff; box-shadow: 0 0 0 2px rgba(6,45,75,.35), inset 0 0 0 2px rgba(6,45,75,.25); opacity: 0; pointer-events: none; z-index: 4; }
+  .tapring.sleepy { border-color: #d9c8ff; }
+  .tapring.go { animation: tapring .45s ease-out; }
+  .tapring.pop { width: 90px; height: 90px; margin: -45px 0 0 -45px; border-width: 6px; border-color: var(--sun); }
+  .tapring.pop.go { animation: tapring .55s ease-out; }
+  @keyframes tapring { 0% { opacity: 1; transform: scale(.35); } 100% { opacity: 0; transform: scale(1.5); } }
   #flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 6; }
   #flash.go { animation: flash .35s ease-out; }
   @keyframes flash { 0% { opacity: .85; } 100% { opacity: 0; } }

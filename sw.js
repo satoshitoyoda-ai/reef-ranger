@@ -1,5 +1,5 @@
 // Offline cache. Bump VERSION on every release (and VERSION in js/game.js) so devices pick up the new files.
-const VERSION = 'reef-ranger-v1.0.0';
+const VERSION = 'reef-ranger-v1.0.1';
 const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png',
   './js/game.js', './js/save.js', './js/ocean.js', './js/critters.js', './js/shade.js', './js/data.js', './js/audio.js', './js/u.js',
   './lib/three.module.js', './lib/three.core.js', './lib/addons/utils/BufferGeometryUtils.js'];

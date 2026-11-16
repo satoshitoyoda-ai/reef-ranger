@@ -12,7 +12,7 @@ import { clamp, rnd, pick, damp, sm } from './u.js';
 import { sfx, say, ambience, unlock, setMuted, setVoice, setSilent } from './audio.js';
 import * as SV from './save.js';
 
-export const VERSION = 'v1.0.0';
+export const VERSION = 'v1.0.1';
 const V3 = THREE.Vector3;
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const Q = new URLSearchParams(location.search);
@@ -88,6 +88,13 @@ const bubbleMat = new THREE.ShaderMaterial({
 const sleepyMat = bubbleMat.clone(); sleepyMat.uniforms = { uTime: U.uTime };
 sleepyMat.fragmentShader = bubbleMat.fragmentShader.replace('vec3(0.85,0.97,1.0)', 'vec3(0.84,0.76,1.0)');
 const sphereG = new THREE.SphereGeometry(1, 20, 14);
+// v1.0.1: shots read better — a more solid, tinted bubble with a glowing core (iPad feedback: shooting was hard to see)
+const shotMat = bubbleMat.clone(); shotMat.uniforms = { uTime: U.uTime };
+shotMat.fragmentShader = bubbleMat.fragmentShader.replace('vec3(0.85,0.97,1.0), ir, 0.45', 'vec3(0.62,0.92,1.0), ir, 0.3').replace('0.06 + pow(f, 2.2)*0.85', '0.3 + pow(f, 1.5)*0.75');
+const sleepyShotMat = shotMat.clone(); sleepyShotMat.uniforms = { uTime: U.uTime };
+sleepyShotMat.fragmentShader = shotMat.fragmentShader.replace('vec3(0.62,0.92,1.0)', 'vec3(0.8,0.68,1.0)');
+const coreMat = new THREE.SpriteMaterial({ map: K.glowTex(), color: '#dff8ff', blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+const sleepyCoreMat = coreMat.clone(); sleepyCoreMat.color.set('#e6d8ff');
 
 /* ---------------- portraits (Fish Guide cards and the pop-up card window) ---------------- */
 const pScene = new THREE.Scene(); pScene.background = new THREE.Color('#cfeefc');
@@ -253,10 +260,15 @@ function cleanup(biome) {
 }
 function wrapBubble(a, k = 1.15) { const b = new THREE.Mesh(sphereG, bubbleMat); b.scale.setScalar(a.r * k / a.obj.scale.x); a.obj.add(b); }
 function popAway(a) { bubbles.burst(a.p, 22, 3, 0.16); sfx.pop(); kill(a); }
+let ringMat;
 function trash(pos, kind = pick(['can', 'bottle', 'bag'])) {
-  const obj = K.makeTrash(kind); obj.scale.setScalar(1.6); obj.position.copy(pos);
-  return add(obj, { kind: 'trash', target: true, r: obj.userData.r * 1.6 + 0.25, base: pos.clone(), vy: 0, sink: 0,
+  const TS = 2.0, obj = K.makeTrash(kind); obj.scale.setScalar(TS); obj.position.copy(pos);
+  ringMat = ringMat || new THREE.SpriteMaterial({ map: K.trashRingTex(), transparent: true, depthWrite: false, fog: false });
+  const ring = new THREE.Sprite(ringMat), rs = (obj.userData.r * TS + 0.25) * 2.3 / TS; ring.scale.setScalar(rs); obj.add(ring);
+  return add(obj, { kind: 'trash', target: true, r: obj.userData.r * TS + 0.25, base: pos.clone(), vy: 0, sink: 0, ring, rs,
     update(dt, t) {
+      this.ring.visible = !this.wrapped && this.p.distanceTo(P.pos) < 38;   // far-off rings only clutter the horizon
+      if (this.ring.visible) this.ring.scale.setScalar(this.rs * (1 + Math.sin(t * 5 + this.t0) * 0.1));
       if (this.wrapped) { this.vy = Math.min(this.vy + dt * 2, 3.2); this.obj.position.y += this.vy * dt; this.obj.position.x += Math.sin(t * 3 + this.t0) * 0.01; this.obj.rotation.y += dt; if (this.obj.position.y > ocean.E.surfY - 1.5 || T.t - this.wrapT > 5) popAway(this); return; }
       if (this.sink) this.base.y = Math.max(this.base.y - this.sink * dt, ocean.ground(this.base.x, this.base.z) + 0.8);
       this.obj.position.set(this.base.x, this.base.y + Math.sin(t * 0.9 + this.t0) * 0.25, this.base.z); this.obj.rotation.x += dt * 0.2; this.obj.rotation.y += dt * 0.15;
@@ -417,6 +429,13 @@ function scanCheck() {
     ping(s); discover(a.sp, 'scan'); return;
   }
 }
+const rings = []; let ringI = 0;
+function tapRing(x, y, sleepy, pop) {   // a ring where the finger tapped (and a bigger one where a bubble pops)
+  if (S.screen !== 'play') return;
+  if (!rings.length) for (let k = 0; k < 8; k++) { const e = document.createElement('div'); e.className = 'tapring'; document.body.appendChild(e); rings.push(e); }
+  const e = rings[ringI = (ringI + 1) % rings.length]; e.className = 'tapring'; e.style.left = x + 'px'; e.style.top = y + 'px';
+  void e.offsetWidth; e.className = 'tapring go' + (sleepy ? ' sleepy' : '') + (pop ? ' pop' : '');
+}
 function ping(s) { const r = $('#ping'); r.style.left = s.x + 'px'; r.style.top = s.y + 'px'; r.classList.remove('go'); void r.offsetWidth; r.classList.add('go'); }
 
 /* ---------------- shooting and photos ---------------- */
@@ -442,22 +461,26 @@ function fire(sx, sy) {
   if (tgt) dir = tgt.p.clone().sub(o).normalize();
   else { const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2(sx / innerWidth * 2 - 1, -(sy / innerHeight) * 2 + 1), camera); dir = rc.ray.at(30, new V3()).sub(o).normalize(); }
   const sleepy = tgt && (tgt.kind === 'pred' || tgt.kind === 'boss');   // bubbles aimed at grumpy fish turn lavender
-  const m = new THREE.Mesh(sphereG, sleepy ? sleepyMat : bubbleMat); m.scale.setScalar(sleepy ? 0.3 : 0.24); m.position.copy(o); scene.add(m);
-  shots.push({ m, pos: o.clone(), vel: dir.multiplyScalar(24), tgt, life: 2.4, tint: sleepy ? 0xd8c8ff : 0xffffff });
-  sfx.bloop(); P.puff = 1;
+  const m = new THREE.Mesh(sphereG, sleepy ? sleepyShotMat : shotMat); m.position.copy(o); scene.add(m);
+  const core = new THREE.Sprite(sleepy ? sleepyCoreMat : coreMat); core.scale.setScalar(1.7); m.add(core);
+  const size = sleepy ? 0.55 : 0.5; m.scale.setScalar(size * 0.35);
+  shots.push({ m, pos: o.clone(), vel: dir.multiplyScalar(15), tgt, life: 3.2, age: 0, size, tint: sleepy ? 0xd8c8ff : 0xffffff });
+  bubbles.burst(o, 7, 1.3, 0.12, sleepy ? 0xd8c8ff : 0xffffff);
+  tapRing(sx, sy, sleepy); sfx.bloop(); P.puff = 1;
 }
 function updateShots(dt) {
   for (let i = shots.length - 1; i >= 0; i--) {
-    const s = shots[i]; s.life -= dt;
-    if (s.tgt && s.tgt.alive && s.tgt.target) { _v.copy(s.tgt.p).sub(s.pos).normalize().multiplyScalar(26); s.vel.lerp(_v, clamp(dt * 8, 0, 1)); }
+    const s = shots[i]; s.life -= dt; s.age += dt;
+    if (s.tgt && s.tgt.alive && s.tgt.target) { _v.copy(s.tgt.p).sub(s.pos).normalize().multiplyScalar(17); s.vel.lerp(_v, clamp(dt * 8, 0, 1)); }
     s.pos.addScaledVector(s.vel, dt); s.m.position.copy(s.pos);
-    if (Math.random() < 0.7) bubbles.emit(s.pos.x, s.pos.y, s.pos.z, rnd(-0.3, 0.3), rnd(0, 0.4), rnd(-0.3, 0.3), 0.05 + Math.random() * 0.05, 0.6, s.tint);
+    s.m.scale.setScalar(s.size * (s.age < 0.12 ? 0.35 + 0.65 * s.age / 0.12 + Math.sin(s.age / 0.12 * Math.PI) * 0.25 : 1 + Math.sin(s.age * 18) * 0.05));
+    for (let k = 0; k < 2; k++) bubbles.emit(s.pos.x + rnd(-0.12, 0.12), s.pos.y + rnd(-0.12, 0.12), s.pos.z + rnd(-0.12, 0.12), rnd(-0.4, 0.4), rnd(0.1, 0.6), rnd(-0.4, 0.4), 0.1 + Math.random() * 0.1, 0.8, s.tint);
     let hit = null;
     for (const a of actors) if (a.alive && a.target && a.p.distanceTo(s.pos) < a.r + 0.3) { hit = a; break; }
     const gnd = ocean.ground(s.pos.x, s.pos.z);
     if (hit || s.life <= 0 || s.pos.y < gnd + 0.15) {
-      bubbles.burst(s.pos, 12, 2.2, 0.08, s.tint); scene.remove(s.m); shots.splice(i, 1);
-      if (hit) hit.hit(); else sfx.pop();
+      bubbles.burst(s.pos, hit ? 26 : 12, hit ? 3.4 : 2.2, hit ? 0.15 : 0.1, s.tint); scene.remove(s.m); shots.splice(i, 1);
+      if (hit) { const sp = project(s.pos); if (sp.z < 1) tapRing(sp.x, sp.y, s.tint !== 0xffffff, true); hit.hit(); } else sfx.pop();
     }
   }
 }
@@ -724,7 +747,7 @@ function step(dt) {
   const play = S.screen === 'play';
   if (play) updatePip(dt); else titleCam(T.t);
   pip.group.position.copy(P.pos); pip.group.rotation.set(P.pitch, P.heading, P.roll + Math.sin(T.t * 14) * 0.12 * P.wob, 'YXZ');
-  pip.inner.scale.setScalar(1 + (P.puff || 0) * 0.06);
+  pip.inner.scale.setScalar(1 + (P.puff || 0) * 0.1);
   const sw = pip.mat.userData.swim.uSwim.value; sw.x = 0.12 + (P.boost > 0 ? 0.05 : 0); sw.y = 4 + P.speed * 0.38;
   if ((T.bubT -= dt) <= 0) { T.bubT = play ? 0.35 : 0.6; const m = pip.group.localToWorld(pip.mouth.clone()); bubbles.emit(m.x, m.y, m.z, rnd(-0.2, 0.2), 0.5, rnd(-0.2, 0.2), 0.06 + Math.random() * 0.05, 2.2); }
   for (let i = actors.length - 1; i >= 0; i--) { const a = actors[i]; if (a.alive) a.update(dt, T.t); }

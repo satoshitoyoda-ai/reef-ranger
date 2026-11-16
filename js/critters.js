@@ -457,24 +457,37 @@ export function makeSquid() {
 /* ---------------- option A: trash, ghost net, Gunk Bot ---------------- */
 let _glow;
 export function glowTex() { return _glow || (_glow = radialTex([[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,255,255,0.55)'], [1, 'rgba(255,255,255,0)']], 64)); }
+// v1.0.1: a yellow "bubble me!" ring with a soft glow, drawn around each piece of trash (iPad feedback: trash was hard to see)
+let _ring;
+export function trashRingTex() {
+  if (_ring) return _ring;
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  const gr = x.createRadialGradient(64, 64, 0, 64, 64, 50); gr.addColorStop(0, 'rgba(255,240,170,0.42)'); gr.addColorStop(0.75, 'rgba(255,230,120,0.12)'); gr.addColorStop(1, 'rgba(255,230,120,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  x.lineWidth = 13; x.strokeStyle = 'rgba(8,40,70,0.55)'; x.beginPath(); x.arc(64, 64, 52, 0, Math.PI * 2); x.stroke();
+  x.lineWidth = 8; x.strokeStyle = '#ffd23f'; x.beginPath(); x.arc(64, 64, 52, 0, Math.PI * 2); x.stroke();
+  _ring = new THREE.CanvasTexture(c); _ring.colorSpace = THREE.SRGBColorSpace; return _ring;
+}
 
 export function makeTrash(kind) {
   const g = new THREE.Group(); let r = 0.3;
   if (kind === 'can') {
     const c = new THREE.CylinderGeometry(0.11, 0.11, 0.36, 18, 6);
-    paint(c, (col, q) => { col.set(Math.abs(q.y) > 0.15 ? '#c9cdd1' : '#d62f2f'); if (Math.abs(q.y - Math.sin(Math.atan2(q.x, q.z) * 2) * 0.05) < 0.02) col.set('#ffffff'); });
-    g.add(new THREE.Mesh(c, stdMat({ roughness: 0.35, metalness: 0.4 }))); g.rotation.set(0.9, 0.3, 0.5); r = 0.3;
+    paint(c, (col, q) => { col.set(Math.abs(q.y) > 0.15 ? '#e4e8ec' : '#ff2a2a'); if (Math.abs(q.y - Math.sin(Math.atan2(q.x, q.z) * 2) * 0.05) < 0.02) col.set('#ffffff'); });
+    g.add(new THREE.Mesh(c, stdMat({ roughness: 0.4, metalness: 0.15, emissive: '#4a3434', fog: false }))); g.rotation.set(0.9, 0.3, 0.5); r = 0.3;
   } else if (kind === 'bottle') {
     const pts = []; for (let i = 0; i <= 16; i++) { const y = -0.22 + i * 0.03; const rr = y < 0.12 ? 0.1 : y < 0.2 ? 0.1 - (y - 0.12) * 0.8 : 0.035; pts.push(new V2(rr, y)); }
-    g.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 16), new THREE.MeshStandardMaterial({ color: '#9fd8ff', transparent: true, opacity: 0.55, roughness: 0.1, side: THREE.DoubleSide })));
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.05, 10), new THREE.MeshStandardMaterial({ color: '#2f7de1' })); cap.position.y = 0.27; g.add(cap);
+    g.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 16), new THREE.MeshStandardMaterial({ color: '#3fe08a', roughness: 0.25, emissive: '#1a7a48', side: THREE.DoubleSide, fog: false })));
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.06, 10), new THREE.MeshStandardMaterial({ color: '#ff6a1f', emissive: '#7a2a00', fog: false })); cap.position.y = 0.27; g.add(cap);
     g.rotation.set(1.2, 0, 0.7); r = 0.32;
   } else {
     const b = new THREE.SphereGeometry(0.28, 14, 10); const p = b.attributes.position;
     for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 0.75 + fbm(x * 7 + 2, z * 7 + y * 5, 2) * 0.6; p.setXYZ(i, x * k, y * k * 1.2, z * k * 0.8); }
     b.computeVertexNormals();
-    g.add(new THREE.Mesh(b, new THREE.MeshStandardMaterial({ color: '#f4f4f0', transparent: true, opacity: 0.6, roughness: 0.4, side: THREE.DoubleSide })));
-    for (const sd of [-1, 1]) { const h = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.015, 6, 14, Math.PI), new THREE.MeshStandardMaterial({ color: '#f4f4f0', transparent: true, opacity: 0.6 })); h.position.set(sd * 0.08, 0.3, 0); g.add(h); }
+    const bc = ['#ffffff', '#ffe14d', '#ff8fb8'][Math.floor(Math.random() * 3)];
+    const bm = new THREE.MeshStandardMaterial({ color: bc, roughness: 0.5, emissive: new THREE.Color(bc).multiplyScalar(0.42), side: THREE.DoubleSide, fog: false });
+    g.add(new THREE.Mesh(b, bm));
+    for (const sd of [-1, 1]) { const h = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.02, 6, 14, Math.PI), bm); h.position.set(sd * 0.08, 0.3, 0); g.add(h); }
     r = 0.38;
   }
   g.userData.r = r; return g;
